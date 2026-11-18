@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administrator Portal | International Pioneers School Bangkok</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Prompt:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif; background: #f1f5f9; color: #0f172a; }
+    .card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(15,23,42,0.04); }
+  </style>
+</head>
+<body class="pb-14">
+
+  <header class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-lg border-b-4 border-red-600">
+    <div class="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4 text-center sm:text-left">
+        <img src="https://lh3.googleusercontent.com/d/1R1aYZwaQ-IwaZizziHzJaUb6yXhabVOT" onerror="this.style.display='none'" alt="IPS Logo" class="w-14 h-14 object-contain rounded-full bg-white/10 p-1">
+        <div>
+          <span class="text-[11px] font-bold tracking-widest uppercase text-red-400">International Pioneers School Bangkok</span>
+          <h1 class="text-xl font-extrabold tracking-tight">ADMINISTRATOR DASHBOARD</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnLogout" class="hidden px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition">
+          Logout
+        </button>
+        <a href="index.html" class="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition">
+          ← Back to Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 mt-8">
+
+    <!-- Login Box -->
+    <div id="loginSection" class="max-w-md mx-auto card rounded-3xl p-8">
+      <h2 class="text-lg font-bold text-slate-800 text-center">Staff Authentication</h2>
+      <p class="text-xs text-slate-500 text-center mt-1 mb-6">Sign in with your IPS Administrator account</p>
+      
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Admin Email</label>
+          <input type="email" id="adminEmail" required placeholder="admin@ips.ac.th" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+          <input type="password" id="adminPassword" required placeholder="••••••••" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-blue-900 hover:bg-blue-950 text-white font-bold text-sm transition">
+          Sign In
+        </button>
+      </form>
+    </div>
+
+    <!-- Admin Management Table -->
+    <div id="adminPanel" class="hidden space-y-6">
+      <div class="card rounded-2xl p-6 overflow-x-auto">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">Manage Reported Items</h2>
+            <p id="adminUserLabel" class="text-xs text-slate-500"></p>
+          </div>
+          <input type="text" id="adminSearch" placeholder="Filter by ID, item, or finder..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-64">
+        </div>
+
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+              <th class="py-3 px-3">Ref ID</th>
+              <th class="py-3 px-3">Item & Details</th>
+              <th class="py-3 px-3">House</th>
+              <th class="py-3 px-3">Finder</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
+            <tr><td colspan="6" class="py-8 text-center text-slate-400">Loading records...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <script type="module">
+    import { db, auth } from "./js/firebase-init.js";
+    import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    let allRecords = [];
+
+    // ตรวจสอบสถานะการล็อกอินอัตโนมัติ
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        document.getElementById('loginSection').classList.add('hidden');
+        document.getElementById('adminPanel').classList.remove('hidden');
+        document.getElementById('btnLogout').classList.remove('hidden');
+        document.getElementById('adminUserLabel').innerText = `Logged in as: ${user.email}`;
+        listenToDatabase();
+      } else {
+        document.getElementById('loginSection').classList.remove('hidden');
+        document.getElementById('adminPanel').classList.add('hidden');
+        document.getElementById('btnLogout').classList.add('hidden');
+      }
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('adminEmail').value.trim();
+      const pass = document.getElementById('adminPassword').value;
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (err) {
+        Swal.fire('Login Failed', 'Invalid email or password.', 'error');
+      }
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
+
+    function listenToDatabase() {
+      const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
+      onSnapshot(q, (snapshot) => {
+        allRecords = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+        renderTable();
+      });
+    }
+
+    function renderTable() {
+      const kw = document.getElementById('adminSearch').value.toLowerCase().trim();
+      const filtered = allRecords.filter(r => 
+        !kw || [r.itemId, r.item, r.finder, r.location, r.house].join(' ').toLowerCase().includes(kw)
+      );
+
+      const tbody = document.getElementById('adminTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400">No records found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(r => {
+        const isRet = r.status === 'Returned';
+        const statusBadge = isRet
+          ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Returned</span>`
+          : `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">Awaiting Owner</span>`;
+
+        const toggleBtn = isRet
+          ? `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold">Undo</button>`
+          : `<button onclick="window.toggleStatus('${r.docId}', 'Returned')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Mark Returned</button>`;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3 font-mono font-bold text-blue-900">${r.itemId || '-'}</td>
+            <td class="py-3 px-3">
+              <div class="font-bold text-slate-800">${r.item}</div>
+              <div class="text-[11px] text-slate-500">${r.color} • Found at: ${r.location} (${r.foundDate})</div>
+            </td>
+            <td class="py-3 px-3">${r.house}</td>
+            <td class="py-3 px-3">${r.finder} <span class="text-slate-400">(${r.gradeClass || '-'})</span></td>
+            <td class="py-3 px-3">${statusBadge}</td>
+            <td class="py-3 px-3 text-right space-x-1 whitespace-nowrap">
+              ${toggleBtn}
+              <button onclick="window.removeItem('${r.docId}')" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.toggleStatus = async (docId, newStatus) => {
+      await updateDoc(doc(db, "lost_items", docId), { status: newStatus });
+    };
+
+    window.removeItem = async (docId) => {
+      const res = await Swal.fire({
+        title: 'Delete this record?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        confirmButtonText: 'Yes, delete'
+      });
+      if (res.isConfirmed) {
+        await deleteDoc(doc(db, "lost_items", docId));
+      }
+    };
+
+    document.getElementById('adminSearch').addEventListener('input', renderTable);
+  </script>
+</body>
+</html>
