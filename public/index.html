@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lost & Found Portal | International Pioneers School Bangkok</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Prompt:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif; background: #f1f5f9; color: #0f172a; }
+    .card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(15,23,42,0.04); }
+  </style>
+</head>
+<body class="pb-14">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-lg border-b-4 border-red-600">
+    <div class="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4 text-center sm:text-left">
+        <img src="https://lh3.googleusercontent.com/d/1R1aYZwaQ-IwaZizziHzJaUb6yXhabVOT" 
+             onerror="this.style.display='none'" alt="IPS Logo" 
+             class="w-16 h-16 object-contain rounded-full bg-white/10 p-1 border border-white/20">
+        <div>
+          <span class="text-[11px] font-bold tracking-widest uppercase text-red-400">International Pioneers School Bangkok</span>
+          <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight">LOST & FOUND PORTAL</h1>
+          <p class="text-slate-300 text-xs">A Step Forward — Campus Property Recovery System</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 mt-8 space-y-8">
+    <!-- Navigation Cards (แยกไฟล์ชัดเจน) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <a href="found.html" class="card rounded-2xl p-6 block hover:-translate-y-1 transition border-t-4 border-t-emerald-500">
+        <h2 class="text-lg font-bold text-slate-800">📦 Found Property Report</h2>
+        <p class="text-xs text-slate-500 mt-1">Register an item found on campus and earn House points.</p>
+        <span class="inline-block mt-4 text-xs font-bold text-emerald-600 uppercase">Submit Report →</span>
+      </a>
+
+      <a href="search.html" class="card rounded-2xl p-6 block hover:-translate-y-1 transition border-t-4 border-t-blue-600">
+        <h2 class="text-lg font-bold text-slate-800">🔍 Lost Property Inquiry</h2>
+        <p class="text-xs text-slate-500 mt-1">Search missing belongings by category, color, or location.</p>
+        <span class="inline-block mt-4 text-xs font-bold text-blue-600 uppercase">Search Items →</span>
+      </a>
+
+      <a href="admin.html" class="card rounded-2xl p-6 block hover:-translate-y-1 transition border-t-4 border-t-red-600">
+        <h2 class="text-lg font-bold text-slate-800">🛡️ School Administrator</h2>
+        <p class="text-xs text-slate-500 mt-1">Staff access to manage custody and item handovers.</p>
+        <span class="inline-block mt-4 text-xs font-bold text-red-600 uppercase">Staff Login →</span>
+      </a>
+    </div>
+
+    <!-- Real-time Stats -->
+    <div>
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Property Recovery Overview</h3>
+        <span id="syncStatus" class="text-xs text-emerald-600 font-semibold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Connecting...
+        </span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="card rounded-2xl p-5">
+          <p class="text-xs font-semibold text-slate-500 uppercase">Total Items Found</p>
+          <p id="statTotal" class="text-3xl font-extrabold text-slate-800 mt-1">-</p>
+        </div>
+        <div class="card rounded-2xl p-5 border-l-4 border-l-emerald-500">
+          <p class="text-xs font-semibold text-emerald-700 uppercase">Returned to Owner</p>
+          <p id="statReturned" class="text-3xl font-extrabold text-emerald-600 mt-1">-</p>
+        </div>
+        <div class="card rounded-2xl p-5 border-l-4 border-l-amber-500">
+          <p class="text-xs font-semibold text-amber-700 uppercase">Awaiting Owner</p>
+          <p id="statPending" class="text-3xl font-extrabold text-amber-600 mt-1">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- House Chart -->
+    <div class="card rounded-2xl p-6 sm:p-8">
+      <h2 class="text-base font-bold text-slate-800 mb-4">Found Property Statistics by House</h2>
+      <div class="max-w-2xl mx-auto">
+        <canvas id="houseChart" height="130"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { db } from "./js/firebase-init.js";
+    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    let chartInstance = null;
+
+    // ดึงข้อมูลแบบ Real-time ทันทีที่มีการอัปเดตใน Firestore
+    onSnapshot(collection(db, "lost_items"), (snapshot) => {
+      document.getElementById('syncStatus').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Live Real-time`;
+      
+      const counts = { 'Red House': 0, 'Yellow House': 0, 'Green House': 0, 'Blue House': 0 };
+      let returned = 0;
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const h = String(data.house || '');
+        if (h.includes('Red')) counts['Red House']++;
+        else if (h.includes('Yellow')) counts['Yellow House']++;
+        else if (h.includes('Green')) counts['Green House']++;
+        else if (h.includes('Blue')) counts['Blue House']++;
+
+        if (data.status === 'Returned') returned++;
+      });
+
+      const total = snapshot.size;
+      document.getElementById('statTotal').innerText = total;
+      document.getElementById('statReturned').innerText = returned;
+      document.getElementById('statPending').innerText = total - returned;
+
+      renderChart(Object.keys(counts), Object.values(counts));
+    }, (error) => {
+      console.error("Firestore error:", error);
+      document.getElementById('syncStatus').innerText = "Connection Error";
+    });
+
+    function renderChart(labels, values) {
+      const ctx = document.getElementById('houseChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#dc2626', '#eab308', '#16a34a', '#2563eb'],
+            borderRadius: 8,
+            barThickness: 44
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
