@@ -56,24 +56,62 @@
       </form>
     </div>
 
-    <!-- Admin Management Table -->
-    <div id="adminPanel" class="hidden space-y-6">
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="hidden space-y-8">
+      
+      <!-- SECTION 1: DROP-OFF POINT & CATEGORY SETTINGS -->
+      <div class="card rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">📍 Category & Drop-off Point Settings</h2>
+            <p class="text-xs text-slate-500">Define item categories, examples, and where finders must drop them off.</p>
+          </div>
+          <button id="btnSeedDefaults" class="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold transition">
+            + Load 3 Default Rules
+          </button>
+        </div>
+
+        <!-- Add New Rule Form -->
+        <form id="categoryForm" class="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-5">
+          <div class="sm:col-span-3">
+            <input type="text" id="catName" required placeholder="Category (e.g., Valuables / ของมีค่า)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+          </div>
+          <div class="sm:col-span-4">
+            <input type="text" id="catExamples" required placeholder="Examples (e.g., Wallet, Cash, Phone)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+          </div>
+          <div class="sm:col-span-3">
+            <input type="text" id="catDropPoint" required placeholder="Drop-off Point (e.g., Office)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+          </div>
+          <div class="sm:col-span-2">
+            <button type="submit" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition">
+              + Add Rule
+            </button>
+          </div>
+        </form>
+
+        <!-- Active Categories List -->
+        <div id="categoryList" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="col-span-full text-center py-4 text-xs text-slate-400">Loading drop-off rules...</div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: MANAGE REPORTED ITEMS -->
       <div class="card rounded-2xl p-6 overflow-x-auto">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
-            <h2 class="text-base font-bold text-slate-800">Manage Reported Items</h2>
+            <h2 class="text-base font-bold text-slate-800">📦 Manage Reported Items</h2>
             <p id="adminUserLabel" class="text-xs text-slate-500"></p>
           </div>
-          <input type="text" id="adminSearch" placeholder="Filter by ID, item, or finder..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-64">
+          <input type="text" id="adminSearch" placeholder="Filter by ID, item, drop-off point..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-64">
         </div>
 
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
               <th class="py-3 px-3">Ref ID</th>
-              <th class="py-3 px-3">Item & Details</th>
-              <th class="py-3 px-3">House</th>
-              <th class="py-3 px-3">Finder</th>
+              <th class="py-3 px-3">Item & Category</th>
+              <th class="py-3 px-3">Drop-off Point</th>
+              <th class="py-3 px-3">Finder / House</th>
               <th class="py-3 px-3">Status</th>
               <th class="py-3 px-3 text-right">Actions</th>
             </tr>
@@ -83,6 +121,7 @@
           </tbody>
         </table>
       </div>
+
     </div>
 
   </main>
@@ -90,11 +129,11 @@
   <script type="module">
     import { db, auth } from "./js/firebase-init.js";
     import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-    import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { collection, query, orderBy, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
     let allRecords = [];
+    let allCategories = [];
 
-    // ตรวจสอบสถานะการล็อกอินอัตโนมัติ
     onAuthStateChanged(auth, (user) => {
       if (user) {
         document.getElementById('loginSection').classList.add('hidden');
@@ -102,6 +141,7 @@
         document.getElementById('btnLogout').classList.remove('hidden');
         document.getElementById('adminUserLabel').innerText = `Logged in as: ${user.email}`;
         listenToDatabase();
+        listenToCategories();
       } else {
         document.getElementById('loginSection').classList.remove('hidden');
         document.getElementById('adminPanel').classList.add('hidden');
@@ -111,10 +151,8 @@
 
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('adminEmail').value.trim();
-      const pass = document.getElementById('adminPassword').value;
       try {
-        await signInWithEmailAndPassword(auth, email, pass);
+        await signInWithEmailAndPassword(auth, document.getElementById('adminEmail').value.trim(), document.getElementById('adminPassword').value);
       } catch (err) {
         Swal.fire('Login Failed', 'Invalid email or password.', 'error');
       }
@@ -122,6 +160,83 @@
 
     document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
 
+    // --- CATEGORY & DROP-OFF MANAGEMENT ---
+    function listenToCategories() {
+      const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
+      onSnapshot(q, (snapshot) => {
+        allCategories = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderCategories();
+      });
+    }
+
+    function renderCategories() {
+      const box = document.getElementById('categoryList');
+      if (allCategories.length === 0) {
+        box.innerHTML = `<div class="col-span-full text-center py-4 text-xs text-slate-400 bg-slate-50 rounded-xl">No rules yet. Click "+ Load 3 Default Rules" above or add your own.</div>`;
+        return;
+      }
+
+      box.innerHTML = allCategories.map(c => `
+        <div class="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-start gap-2">
+              <span class="font-bold text-slate-800 text-xs">${c.name}</span>
+              <span class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 font-bold text-[11px]">📍 ${c.dropPoint}</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">e.g., ${c.examples}</p>
+          </div>
+          <div class="mt-3 pt-2 border-t border-slate-200/60 flex justify-end gap-2">
+            <button onclick="window.editDropPoint('${c.id}', '${c.name}', '${c.dropPoint}')" class="text-[11px] font-semibold text-blue-700 hover:underline">Edit Drop-off</button>
+            <button onclick="window.deleteCategory('${c.id}')" class="text-[11px] font-semibold text-red-600 hover:underline">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await addDoc(collection(db, "categories"), {
+        name: document.getElementById('catName').value.trim(),
+        examples: document.getElementById('catExamples').value.trim(),
+        dropPoint: document.getElementById('catDropPoint').value.trim(),
+        createdAt: serverTimestamp()
+      });
+      document.getElementById('categoryForm').reset();
+      Swal.fire({ icon: 'success', title: 'Rule Added', timer: 1200, showConfirmButton: false });
+    });
+
+    document.getElementById('btnSeedDefaults').addEventListener('click', async () => {
+      const defaults = [
+        { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash, Jewelry, Electronics (กระเป๋าเงิน, เงินสด)", dropPoint: "Office" },
+        { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Colored Pencils, PE Shirt (ปากกา, ดินสอสี, เสื้อ PE)", dropPoint: "Store room" },
+        { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater (กล่องข้าว, กระติกน้ำ, เสื้อกันหนาว)", dropPoint: "Lost & Found Shelf" }
+      ];
+      for (const item of defaults) {
+        await addDoc(collection(db, "categories"), { ...item, createdAt: serverTimestamp() });
+      }
+      Swal.fire({ icon: 'success', title: '3 Default Rules Loaded!', timer: 1400, showConfirmButton: false });
+    });
+
+    window.editDropPoint = async (id, name, currentDrop) => {
+      const { value: newDrop } = await Swal.fire({
+        title: `Update Drop-off Point`,
+        text: `Category: ${name}`,
+        input: 'text',
+        inputValue: currentDrop,
+        showCancelButton: true,
+        confirmButtonColor: '#1e3a8a'
+      });
+      if (newDrop && newDrop.trim() !== "") {
+        await updateDoc(doc(db, "categories", id), { dropPoint: newDrop.trim() });
+      }
+    };
+
+    window.deleteCategory = async (id) => {
+      const res = await Swal.fire({ title: 'Delete this category rule?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626' });
+      if (res.isConfirmed) await deleteDoc(doc(db, "categories", id));
+    };
+
+    // --- ITEMS MANAGEMENT ---
     function listenToDatabase() {
       const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
       onSnapshot(q, (snapshot) => {
@@ -133,7 +248,7 @@
     function renderTable() {
       const kw = document.getElementById('adminSearch').value.toLowerCase().trim();
       const filtered = allRecords.filter(r => 
-        !kw || [r.itemId, r.item, r.finder, r.location, r.house].join(' ').toLowerCase().includes(kw)
+        !kw || [r.itemId, r.item, r.category, r.dropPoint, r.finder, r.house].join(' ').toLowerCase().includes(kw)
       );
 
       const tbody = document.getElementById('adminTableBody');
@@ -157,10 +272,15 @@
             <td class="py-3 px-3 font-mono font-bold text-blue-900">${r.itemId || '-'}</td>
             <td class="py-3 px-3">
               <div class="font-bold text-slate-800">${r.item}</div>
-              <div class="text-[11px] text-slate-500">${r.color} • Found at: ${r.location} (${r.foundDate})</div>
+              <div class="text-[11px] text-slate-500">${r.category || '-'} • ${r.color} • ${r.foundDate}</div>
             </td>
-            <td class="py-3 px-3">${r.house}</td>
-            <td class="py-3 px-3">${r.finder} <span class="text-slate-400">(${r.gradeClass || '-'})</span></td>
+            <td class="py-3 px-3">
+              <span class="px-2 py-1 rounded-md bg-blue-50 text-blue-900 font-bold text-[11px]">📍 ${r.dropPoint || '-'}</span>
+            </td>
+            <td class="py-3 px-3">
+              <div>${r.finder}</div>
+              <div class="text-[11px] text-slate-400">${r.house}</div>
+            </td>
             <td class="py-3 px-3">${statusBadge}</td>
             <td class="py-3 px-3 text-right space-x-1 whitespace-nowrap">
               ${toggleBtn}
@@ -176,17 +296,8 @@
     };
 
     window.removeItem = async (docId) => {
-      const res = await Swal.fire({
-        title: 'Delete this record?',
-        text: 'This action cannot be undone.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc2626',
-        confirmButtonText: 'Yes, delete'
-      });
-      if (res.isConfirmed) {
-        await deleteDoc(doc(db, "lost_items", docId));
-      }
+      const res = await Swal.fire({ title: 'Delete this record?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626' });
+      if (res.isConfirmed) await deleteDoc(doc(db, "lost_items", docId));
     };
 
     document.getElementById('adminSearch').addEventListener('input', renderTable);
