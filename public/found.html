@@ -59,9 +59,21 @@
           </select>
         </div>
 
+        <!-- Dynamic Category & Drop-off Point -->
+        <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 space-y-2">
+          <label class="block text-xs font-bold text-amber-950">Item Category (ประเภทสิ่งของที่พบ) *</label>
+          <select id="categorySelect" required class="w-full rounded-xl border border-amber-300 px-3.5 py-2.5 text-sm bg-white">
+            <option value="">-- Loading Categories... --</option>
+          </select>
+          <div id="dropPointBanner" class="hidden pt-1 flex items-center gap-2 text-xs font-bold text-blue-900">
+            <span class="px-2.5 py-1 rounded-lg bg-blue-600 text-white">📍 Drop-off Instruction</span>
+            <span id="dropPointText">Please deliver to: -</span>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Item Found *</label>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Item Name *</label>
             <input type="text" id="item" required placeholder="e.g., Water Bottle, PE Shirt" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
           </div>
           <div>
@@ -108,8 +120,8 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Additional Details / Drop-off Point (Optional)</label>
-          <textarea id="details" rows="2" placeholder="Where did you leave the item?" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"></textarea>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Additional Details (Optional)</label>
+          <textarea id="details" rows="2" placeholder="Any distinguishing marks or notes..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"></textarea>
         </div>
 
         <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-100">
@@ -127,10 +139,55 @@
 
   <script type="module">
     import { db } from "./js/firebase-init.js";
-    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+    import { collection, query, orderBy, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
     document.getElementById('foundDate').valueAsDate = new Date();
     let compressedBase64 = "";
+    let categoriesMap = {};
+
+    // โหลดรายการหมวดหมู่และจุด Drop-off ที่ Admin ตั้งค่าไว้
+    async function loadCategories() {
+      const select = document.getElementById('categorySelect');
+      try {
+        const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
+        const snap = await getDocs(q);
+        
+        if (snap.empty) {
+          // กรณี Admin ยังไม่ได้กดโหลดค่าเริ่มต้น ให้ใช้ค่าสำรอง 3 จุดอัตโนมัติ
+          const fallback = [
+            { id: '1', name: "Valuables (ของมีค่า)", examples: "Wallet, Cash", dropPoint: "Office" },
+            { id: '2', name: "Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Pencils, PE Shirt", dropPoint: "Store room" },
+            { id: '3', name: "Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater", dropPoint: "Lost & Found Shelf" }
+          ];
+          select.innerHTML = `<option value="">-- Select Item Category --</option>` + fallback.map(c => {
+            categoriesMap[c.name] = c.dropPoint;
+            return `<option value="${c.name}">${c.name} — e.g., ${c.examples}</option>`;
+          }).join('');
+          return;
+        }
+
+        select.innerHTML = `<option value="">-- Select Item Category --</option>` + snap.docs.map(d => {
+          const c = d.data();
+          categoriesMap[c.name] = c.dropPoint;
+          return `<option value="${c.name}">${c.name} — e.g., ${c.examples}</option>`;
+        }).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadCategories();
+
+    // แสดงจุดส่งมอบทันทีเมื่อเลือกหมวดหมู่
+    document.getElementById('categorySelect').addEventListener('change', function() {
+      const selected = this.value;
+      const banner = document.getElementById('dropPointBanner');
+      if (selected && categoriesMap[selected]) {
+        document.getElementById('dropPointText').innerText = `Please drop off at: ${categoriesMap[selected]}`;
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    });
 
     document.getElementById('itemImage').addEventListener('change', function(event) {
       const file = event.target.files[0];
@@ -161,6 +218,9 @@
       btn.disabled = true;
       btn.innerText = "Saving to Cloud...";
 
+      const selectedCategory = document.getElementById('categorySelect').value;
+      const assignedDropPoint = categoriesMap[selectedCategory] || "Office";
+
       const now = new Date();
       const ym = String(now.getFullYear()).slice(-2) + String(now.getMonth() + 1).padStart(2, '0');
       const rand = Math.floor(100 + Math.random() * 900);
@@ -172,6 +232,8 @@
           finder: document.getElementById('finder').value.trim(),
           gradeClass: document.getElementById('gradeClass').value.trim() || "-",
           house: document.getElementById('house').value,
+          category: selectedCategory,
+          dropPoint: assignedDropPoint,
           item: document.getElementById('item').value.trim(),
           brand: document.getElementById('brand').value.trim() || "-",
           color: document.getElementById('color').value,
@@ -187,8 +249,16 @@
         Swal.fire({
           icon: 'success',
           title: 'Report Submitted!',
-          html: `Reference ID: <strong class="text-blue-900 text-lg">${itemId}</strong>`,
-          confirmButtonText: 'Back to Home',
+          html: `
+            <div class="space-y-2 text-sm">
+              <p>Reference ID: <strong class="text-blue-900 text-lg">${itemId}</strong></p>
+              <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
+                📍 Please bring this item to:<br>
+                <strong class="text-base text-red-600">${assignedDropPoint}</strong>
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'Done',
           confirmButtonColor: '#1e3a8a'
         }).then(() => {
           window.location.href = "index.html";
