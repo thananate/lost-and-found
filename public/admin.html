@@ -64,7 +64,7 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
           <div>
             <h2 class="text-base font-bold text-slate-800">📍 Category & Drop-off Point Settings</h2>
-            <p class="text-xs text-slate-500">Define item categories, examples, and where finders must drop them off.</p>
+            <p class="text-xs text-slate-500">Define item categories, examples, and recommended drop-off locations.</p>
           </div>
           <button id="btnSeedDefaults" class="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-bold transition">
             + Load 3 Default Rules
@@ -110,7 +110,7 @@
             <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
               <th class="py-3 px-3">Ref ID</th>
               <th class="py-3 px-3">Item & Category</th>
-              <th class="py-3 px-3">Drop-off Point</th>
+              <th class="py-3 px-3">Dropped At</th>
               <th class="py-3 px-3">Finder / House</th>
               <th class="py-3 px-3">Status</th>
               <th class="py-3 px-3 text-right">Actions</th>
@@ -160,7 +160,6 @@
 
     document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
 
-    // --- CATEGORY & DROP-OFF MANAGEMENT ---
     function listenToCategories() {
       const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
       onSnapshot(q, (snapshot) => {
@@ -209,7 +208,7 @@
       const defaults = [
         { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash, Jewelry, Electronics (กระเป๋าเงิน, เงินสด)", dropPoint: "Office" },
         { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Colored Pencils, PE Shirt (ปากกา, ดินสอสี, เสื้อ PE)", dropPoint: "Store room" },
-        { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater (กล่องข้าว, กระติกน้ำ, เสื้อกันหนาว)", dropPoint: "Lost & Found Shelf" }
+        { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater (กล่องข้าว, กระติกน้ำ, เสื้อกันหนาว)", dropPoint: "in front of Library" }
       ];
       for (const item of defaults) {
         await addDoc(collection(db, "categories"), { ...item, createdAt: serverTimestamp() });
@@ -236,7 +235,6 @@
       if (res.isConfirmed) await deleteDoc(doc(db, "categories", id));
     };
 
-    // --- ITEMS MANAGEMENT ---
     function listenToDatabase() {
       const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
       onSnapshot(q, (snapshot) => {
