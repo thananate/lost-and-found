@@ -29,7 +29,6 @@
   </header>
 
   <main class="max-w-5xl mx-auto px-4 sm:px-6 mt-8 space-y-6">
-    <!-- Filter Controls -->
     <div class="card rounded-2xl p-5 sm:p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-base font-bold text-slate-800">Search Reported Items</h2>
@@ -56,7 +55,6 @@
       </div>
     </div>
 
-    <!-- Results Grid -->
     <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <div class="col-span-full text-center py-12 text-slate-400 text-sm">Loading items from database...</div>
     </div>
@@ -80,7 +78,7 @@
       const status = document.getElementById('statusFilter').value;
 
       const filtered = allItems.filter(entry => {
-        const text = [entry.item, entry.brand, entry.color, entry.location, entry.details, entry.itemId].join(' ').toLowerCase();
+        const text = [entry.item, entry.brand, entry.color, entry.location, entry.details, entry.itemId, entry.category, entry.dropPoint].join(' ').toLowerCase();
         const matchKey = !keyword || text.includes(keyword);
         const matchHouse = house === 'all' || (entry.house && entry.house.includes(house));
         const matchStatus = status === 'all' || entry.status === status;
@@ -126,17 +124,22 @@
               </div>
               ${imgHtml}
               <h3 class="text-base font-extrabold text-slate-800 mb-2">${esc(entry.item)}</h3>
+              
+              <div class="mb-2.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-xs font-bold text-blue-950">
+                📍 Claim at: <span class="text-blue-700">${esc(entry.dropPoint || 'Office')}</span>
+              </div>
+
               <div class="space-y-1 text-xs text-slate-600">
+                ${entry.category ? `<p><strong>Category:</strong> ${esc(entry.category)}</p>` : ''}
                 ${entry.brand !== '-' ? `<p><strong>Brand:</strong> ${esc(entry.brand)}</p>` : ''}
                 <p><strong>Color:</strong> ${esc(entry.color)}</p>
-                <p><strong>Location:</strong> ${esc(entry.location)}</p>
-                <p><strong>House:</strong> ${esc(entry.house)}</p>
+                <p><strong>Found at:</strong> ${esc(entry.location)}</p>
                 <p><strong>Date Found:</strong> ${esc(entry.foundDate)} ${entry.foundTime !== '-' ? '(' + esc(entry.foundTime) + ')' : ''}</p>
                 ${entry.details !== '-' ? `<p class="pt-1 text-slate-500 italic">"${esc(entry.details)}"</p>` : ''}
               </div>
             </div>
             <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] text-slate-400">
-              Found by: ${esc(entry.finder)}
+              Found by: ${esc(entry.finder)} (${esc(entry.house)})
             </div>
           </div>
         `;
