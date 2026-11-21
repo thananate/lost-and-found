@@ -59,15 +59,26 @@
           </select>
         </div>
 
-        <!-- Dynamic Category & Drop-off Point -->
-        <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 space-y-2">
-          <label class="block text-xs font-bold text-amber-950">Item Category (ประเภทสิ่งของที่พบ) *</label>
-          <select id="categorySelect" required class="w-full rounded-xl border border-amber-300 px-3.5 py-2.5 text-sm bg-white">
-            <option value="">-- Loading Categories... --</option>
-          </select>
-          <div id="dropPointBanner" class="hidden pt-1 flex items-center gap-2 text-xs font-bold text-blue-900">
-            <span class="px-2.5 py-1 rounded-lg bg-blue-600 text-white">📍 Drop-off Instruction</span>
-            <span id="dropPointText">Please deliver to: -</span>
+        <!-- Category & Drop Item At -->
+        <div class="bg-blue-50/70 p-4 rounded-2xl border border-blue-200 space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-blue-950 mb-1">Item Category (ประเภทสิ่งของที่พบ) *</label>
+            <select id="categorySelect" required class="w-full rounded-xl border border-blue-300 px-3.5 py-2.5 text-sm bg-white">
+              <option value="">-- Loading Categories... --</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-bold text-blue-950">📍 Drop Item At (จุดที่นำสิ่งของไปส่งมอบ) *</label>
+              <span id="recommendedHint" class="hidden text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded"></span>
+            </div>
+            <select id="dropPointSelect" required class="w-full rounded-xl border border-blue-300 px-3.5 py-2.5 text-sm bg-white font-semibold text-slate-800">
+              <option value="">-- Select Drop-off Point (เลือกจุดส่งมอบ) --</option>
+              <option value="Office">🏢 Office (สำหรับของมีค่า เช่น กระเป๋าเงิน, เงินสด)</option>
+              <option value="Store room">📦 Store room (สำหรับเครื่องเขียน, เสื้อ PE)</option>
+              <option value="in front of Library">📚 in front of Library (สำหรับของเบ็ดเตล็ด เช่น กล่องข้าว, กระติกน้ำ)</option>
+            </select>
           </div>
         </div>
 
@@ -103,8 +114,8 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Location Found *</label>
-            <input type="text" id="location" required placeholder="e.g., Canteen, Library" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Location Found (จุดที่เก็บได้) *</label>
+            <input type="text" id="location" required placeholder="e.g., Canteen, Football Field" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
           </div>
         </div>
 
@@ -124,8 +135,8 @@
           <textarea id="details" rows="2" placeholder="Any distinguishing marks or notes..." class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm"></textarea>
         </div>
 
-        <div class="bg-blue-50/60 p-4 rounded-2xl border border-blue-100">
-          <label class="block text-xs font-bold text-blue-950 mb-1">📸 Photo (Optional — Auto-compressed)</label>
+        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <label class="block text-xs font-bold text-slate-800 mb-1">📸 Photo (Optional — Auto-compressed)</label>
           <input type="file" id="itemImage" accept="image/*" class="text-xs">
           <img id="imagePreview" class="hidden mt-2 max-h-36 rounded-lg border">
         </div>
@@ -145,130 +156,15 @@
     let compressedBase64 = "";
     let categoriesMap = {};
 
-    // โหลดรายการหมวดหมู่และจุด Drop-off ที่ Admin ตั้งค่าไว้
     async function loadCategories() {
       const select = document.getElementById('categorySelect');
+      const dropSelect = document.getElementById('dropPointSelect');
       try {
         const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
         const snap = await getDocs(q);
         
         if (snap.empty) {
-          // กรณี Admin ยังไม่ได้กดโหลดค่าเริ่มต้น ให้ใช้ค่าสำรอง 3 จุดอัตโนมัติ
           const fallback = [
-            { id: '1', name: "Valuables (ของมีค่า)", examples: "Wallet, Cash", dropPoint: "Office" },
-            { id: '2', name: "Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Pencils, PE Shirt", dropPoint: "Store room" },
-            { id: '3', name: "Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater", dropPoint: "Lost & Found Shelf" }
-          ];
-          select.innerHTML = `<option value="">-- Select Item Category --</option>` + fallback.map(c => {
-            categoriesMap[c.name] = c.dropPoint;
-            return `<option value="${c.name}">${c.name} — e.g., ${c.examples}</option>`;
-          }).join('');
-          return;
-        }
-
-        select.innerHTML = `<option value="">-- Select Item Category --</option>` + snap.docs.map(d => {
-          const c = d.data();
-          categoriesMap[c.name] = c.dropPoint;
-          return `<option value="${c.name}">${c.name} — e.g., ${c.examples}</option>`;
-        }).join('');
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    loadCategories();
-
-    // แสดงจุดส่งมอบทันทีเมื่อเลือกหมวดหมู่
-    document.getElementById('categorySelect').addEventListener('change', function() {
-      const selected = this.value;
-      const banner = document.getElementById('dropPointBanner');
-      if (selected && categoriesMap[selected]) {
-        document.getElementById('dropPointText').innerText = `Please drop off at: ${categoriesMap[selected]}`;
-        banner.classList.remove('hidden');
-      } else {
-        banner.classList.add('hidden');
-      }
-    });
-
-    document.getElementById('itemImage').addEventListener('change', function(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 450;
-          let w = img.width, h = img.height;
-          if (w > MAX_WIDTH) { h = Math.round((h * MAX_WIDTH) / w); w = MAX_WIDTH; }
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          compressedBase64 = canvas.toDataURL('image/jpeg', 0.65);
-          const prev = document.getElementById('imagePreview');
-          prev.src = compressedBase64;
-          prev.classList.remove('hidden');
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    document.getElementById('foundForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const btn = document.getElementById('submitBtn');
-      btn.disabled = true;
-      btn.innerText = "Saving to Cloud...";
-
-      const selectedCategory = document.getElementById('categorySelect').value;
-      const assignedDropPoint = categoriesMap[selectedCategory] || "Office";
-
-      const now = new Date();
-      const ym = String(now.getFullYear()).slice(-2) + String(now.getMonth() + 1).padStart(2, '0');
-      const rand = Math.floor(100 + Math.random() * 900);
-      const itemId = `IPS-${ym}-${rand}`;
-
-      try {
-        await addDoc(collection(db, "lost_items"), {
-          itemId: itemId,
-          finder: document.getElementById('finder').value.trim(),
-          gradeClass: document.getElementById('gradeClass').value.trim() || "-",
-          house: document.getElementById('house').value,
-          category: selectedCategory,
-          dropPoint: assignedDropPoint,
-          item: document.getElementById('item').value.trim(),
-          brand: document.getElementById('brand').value.trim() || "-",
-          color: document.getElementById('color').value,
-          location: document.getElementById('location').value.trim(),
-          foundDate: document.getElementById('foundDate').value,
-          foundTime: document.getElementById('foundTime').value || "-",
-          details: document.getElementById('details').value.trim() || "-",
-          imageBase64: compressedBase64,
-          status: "Awaiting Owner",
-          createdAt: serverTimestamp()
-        });
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Report Submitted!',
-          html: `
-            <div class="space-y-2 text-sm">
-              <p>Reference ID: <strong class="text-blue-900 text-lg">${itemId}</strong></p>
-              <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950">
-                📍 Please bring this item to:<br>
-                <strong class="text-base text-red-600">${assignedDropPoint}</strong>
-              </div>
-            </div>
-          `,
-          confirmButtonText: 'Done',
-          confirmButtonColor: '#1e3a8a'
-        }).then(() => {
-          window.location.href = "index.html";
-        });
-      } catch (err) {
-        btn.disabled = false;
-        btn.innerText = "Submit Found Property Report";
-        Swal.fire('Error', err.message, 'error');
-      }
-    });
-  </script>
-</body>
-</html>
+            { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash", dropPoint: "Office" },
+            { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Pencils, PE Shirt", dropPoint: "Store room" },
+            { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples:
