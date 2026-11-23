@@ -59,7 +59,46 @@
     <!-- Admin Panel -->
     <div id="adminPanel" class="hidden space-y-8">
       
-      <!-- SECTION 1: DROP-OFF POINT & CATEGORY SETTINGS -->
+      <!-- SECTION 1: TOP FINDERS REPORT & EXPORT -->
+      <div class="card rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">🏆 Top Finders Report (สรุปอันดับผู้เก็บของได้เยอะที่สุด)</h2>
+            <p class="text-xs text-slate-500">Summary of students/staff who returned lost property for House points & recognition.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="reportPeriod" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold bg-white">
+              <option value="all">📅 All Time (ทั้งหมด)</option>
+              <option value="month">📆 This Month (เดือนนี้)</option>
+            </select>
+            <button id="btnExportFinders" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition">
+              📥 Export Top Finders (CSV)
+            </button>
+            <button id="btnExportAllItems" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition">
+              📊 Export All Items (CSV)
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 bg-slate-50">
+                <th class="py-2.5 px-3 w-16">Rank</th>
+                <th class="py-2.5 px-3">Finder Name</th>
+                <th class="py-2.5 px-3">Grade / Class</th>
+                <th class="py-2.5 px-3">School House</th>
+                <th class="py-2.5 px-3 text-right">Items Found</th>
+              </tr>
+            </thead>
+            <tbody id="topFindersBody" class="divide-y divide-slate-100 text-xs">
+              <tr><td colspan="5" class="py-6 text-center text-slate-400">Calculating report...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SECTION 2: DROP-OFF POINT & CATEGORY SETTINGS -->
       <div class="card rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
           <div>
@@ -71,13 +110,12 @@
           </button>
         </div>
 
-        <!-- Add New Rule Form -->
         <form id="categoryForm" class="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-5">
           <div class="sm:col-span-3">
-            <input type="text" id="catName" required placeholder="Category (e.g., Valuables / ของมีค่า)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+            <input type="text" id="catName" required placeholder="Category (e.g., Valuables)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
           </div>
           <div class="sm:col-span-4">
-            <input type="text" id="catExamples" required placeholder="Examples (e.g., Wallet, Cash, Phone)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
+            <input type="text" id="catExamples" required placeholder="Examples (e.g., Wallet, Cash)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
           </div>
           <div class="sm:col-span-3">
             <input type="text" id="catDropPoint" required placeholder="Drop-off Point (e.g., Office)" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs">
@@ -89,13 +127,12 @@
           </div>
         </form>
 
-        <!-- Active Categories List -->
         <div id="categoryList" class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="col-span-full text-center py-4 text-xs text-slate-400">Loading drop-off rules...</div>
         </div>
       </div>
 
-      <!-- SECTION 2: MANAGE REPORTED ITEMS -->
+      <!-- SECTION 3: MANAGE REPORTED ITEMS -->
       <div class="card rounded-2xl p-6 overflow-x-auto">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
@@ -133,6 +170,7 @@
 
     let allRecords = [];
     let allCategories = [];
+    let currentLeaderboard = [];
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -160,6 +198,93 @@
 
     document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
 
+    // --- TOP FINDERS LEADERBOARD ---
+    function renderTopFinders() {
+      const period = document.getElementById('reportPeriod').value;
+      const currentMonthPrefix = new Date().toISOString().slice(0, 7); // e.g., "2026-11"
+
+      const filtered = allRecords.filter(r => {
+        if (period === 'month') {
+          return r.foundDate && r.foundDate.startsWith(currentMonthPrefix);
+        }
+        return true;
+      });
+
+      const statsMap = {};
+      filtered.forEach(r => {
+        const rawName = (r.finder || 'Unknown').trim();
+        const key = rawName.toLowerCase();
+        if (!statsMap[key]) {
+          statsMap[key] = {
+            name: rawName,
+            gradeClass: r.gradeClass && r.gradeClass !== '-' ? r.gradeClass : '-',
+            house: r.house || '-',
+            count: 0
+          };
+        }
+        statsMap[key].count++;
+        if (statsMap[key].gradeClass === '-' && r.gradeClass && r.gradeClass !== '-') {
+          statsMap[key].gradeClass = r.gradeClass;
+        }
+      });
+
+      currentLeaderboard = Object.values(statsMap).sort((a, b) => b.count - a.count);
+
+      const tbody = document.getElementById('topFindersBody');
+      if (currentLeaderboard.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">No records found for this period.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = currentLeaderboard.map((f, idx) => {
+        let rankBadge = `<span class="font-bold text-slate-500">#${idx + 1}</span>`;
+        if (idx === 0) rankBadge = `<span class="text-base">🥇</span>`;
+        else if (idx === 1) rankBadge = `<span class="text-base">🥈</span>`;
+        else if (idx === 2) rankBadge = `<span class="text-base">🥉</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3">${rankBadge}</td>
+            <td class="py-2.5 px-3 font-bold text-slate-800">${f.name}</td>
+            <td class="py-2.5 px-3 text-slate-600">${f.gradeClass}</td>
+            <td class="py-2.5 px-3 text-slate-600">${f.house}</td>
+            <td class="py-2.5 px-3 text-right">
+              <span class="px-2.5 py-1 rounded-full bg-blue-100 text-blue-900 font-extrabold">${f.count} item(s)</span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('reportPeriod').addEventListener('change', renderTopFinders);
+
+    // Export CSV Helper (รองรับภาษาไทยใน Excel ด้วย BOM \uFEFF)
+    function downloadCSV(filename, rows) {
+      const csvContent = "\uFEFF" + rows.map(e => e.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+    }
+
+    document.getElementById('btnExportFinders').addEventListener('click', () => {
+      const rows = [["Rank", "Finder Name", "Grade/Class", "School House", "Total Items Found"]];
+      currentLeaderboard.forEach((f, idx) => {
+        rows.push([idx + 1, f.name, f.gradeClass, f.house, f.count]);
+      });
+      downloadCSV(`IPS_Top_Finders_${new Date().toISOString().slice(0,10)}.csv`, rows);
+    });
+
+    document.getElementById('btnExportAllItems').addEventListener('click', () => {
+      const rows = [["Ref ID", "Date Found", "Item", "Category", "Color", "Brand", "Found At", "Dropped At", "Finder", "Grade/Class", "House", "Status"]];
+      allRecords.forEach(r => {
+        rows.push([r.itemId, r.foundDate, r.item, r.category, r.color, r.brand, r.location, r.dropPoint, r.finder, r.gradeClass, r.house, r.status]);
+      });
+      downloadCSV(`IPS_Lost_Found_Report_${new Date().toISOString().slice(0,10)}.csv`, rows);
+    });
+
+    // --- CATEGORY & DROP-OFF SETTINGS ---
     function listenToCategories() {
       const q = query(collection(db, "categories"), orderBy("createdAt", "asc"));
       onSnapshot(q, (snapshot) => {
@@ -206,9 +331,9 @@
 
     document.getElementById('btnSeedDefaults').addEventListener('click', async () => {
       const defaults = [
-        { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash, Jewelry, Electronics (กระเป๋าเงิน, เงินสด)", dropPoint: "Office" },
-        { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Colored Pencils, PE Shirt (ปากกา, ดินสอสี, เสื้อ PE)", dropPoint: "Store room" },
-        { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater (กล่องข้าว, กระติกน้ำ, เสื้อกันหนาว)", dropPoint: "in front of Library" }
+        { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash, Jewelry, Electronics", dropPoint: "Office" },
+        { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Colored Pencils, PE Shirt", dropPoint: "Store room" },
+        { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater", dropPoint: "in front of Library" }
       ];
       for (const item of defaults) {
         await addDoc(collection(db, "categories"), { ...item, createdAt: serverTimestamp() });
@@ -235,10 +360,12 @@
       if (res.isConfirmed) await deleteDoc(doc(db, "categories", id));
     };
 
+    // --- MANAGE REPORTED ITEMS ---
     function listenToDatabase() {
       const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
       onSnapshot(q, (snapshot) => {
         allRecords = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+        renderTopFinders();
         renderTable();
       });
     }
