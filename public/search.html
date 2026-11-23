@@ -29,6 +29,7 @@
   </header>
 
   <main class="max-w-5xl mx-auto px-4 sm:px-6 mt-8 space-y-6">
+    <!-- Filter Controls -->
     <div class="card rounded-2xl p-5 sm:p-6">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-base font-bold text-slate-800">Search Reported Items</h2>
@@ -39,12 +40,11 @@
         <input type="text" id="searchInput" placeholder="Search item, brand, color, ID..." 
                class="sm:col-span-2 rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm focus:bg-white focus:border-blue-600 outline-none">
         
-        <select id="houseFilter" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:bg-white outline-none">
-          <option value="all">All Houses</option>
-          <option value="Red">🔴 Red House</option>
-          <option value="Yellow">🟡 Yellow House</option>
-          <option value="Green">🟢 Green House</option>
-          <option value="Blue">🔵 Blue House</option>
+        <select id="dropPointFilter" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:bg-white outline-none font-medium text-slate-700">
+          <option value="all">📍 All Drop-off Points</option>
+          <option value="Office">🏢 Office</option>
+          <option value="Store room">📦 Store room</option>
+          <option value="in front of Library">📚 in front of Library</option>
         </select>
 
         <select id="statusFilter" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:bg-white outline-none">
@@ -55,6 +55,7 @@
       </div>
     </div>
 
+    <!-- Results Grid -->
     <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <div class="col-span-full text-center py-12 text-slate-400 text-sm">Loading items from database...</div>
     </div>
@@ -69,20 +70,49 @@
     const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
       allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateDropPointOptions(allItems);
       filterAndRender();
     });
 
+    // อัปเดตตัวเลือกจุด Drop-off อัตโนมัติหากมีจุดใหม่ถูกเพิ่มเข้ามาในระบบ
+    function updateDropPointOptions(items) {
+      const select = document.getElementById('dropPointFilter');
+      const currentVal = select.value;
+      const defaultPoints = ["Office", "Store room", "in front of Library"];
+      const extraPoints = new Set();
+
+      items.forEach(item => {
+        if (item.dropPoint && !defaultPoints.includes(item.dropPoint)) {
+          extraPoints.add(item.dropPoint);
+        }
+      });
+
+      // ลบตัวเลือกเสริมเก่าออกก่อนสร้างใหม่ป้องกันซ้ำ
+      Array.from(select.querySelectorAll('.extra-opt')).forEach(el => el.remove());
+
+      extraPoints.forEach(pt => {
+        const opt = document.createElement('option');
+        opt.value = pt;
+        opt.text = `📍 ${pt}`;
+        opt.className = 'extra-opt';
+        select.appendChild(opt);
+      });
+
+      select.value = currentVal;
+    }
+
     function filterAndRender() {
       const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
-      const house = document.getElementById('houseFilter').value;
+      const dropPoint = document.getElementById('dropPointFilter').value;
       const status = document.getElementById('statusFilter').value;
 
       const filtered = allItems.filter(entry => {
         const text = [entry.item, entry.brand, entry.color, entry.location, entry.details, entry.itemId, entry.category, entry.dropPoint].join(' ').toLowerCase();
         const matchKey = !keyword || text.includes(keyword);
-        const matchHouse = house === 'all' || (entry.house && entry.house.includes(house));
+        const itemDrop = entry.dropPoint || 'Office';
+        const matchDrop = dropPoint === 'all' || itemDrop.toLowerCase() === dropPoint.toLowerCase();
         const matchStatus = status === 'all' || entry.status === status;
-        return matchKey && matchHouse && matchStatus;
+        return matchKey && matchDrop && matchStatus;
       });
 
       document.getElementById('countBadge').innerText = `${filtered.length} item(s)`;
@@ -125,8 +155,8 @@
               ${imgHtml}
               <h3 class="text-base font-extrabold text-slate-800 mb-2">${esc(entry.item)}</h3>
               
-              <div class="mb-2.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-xs font-bold text-blue-950">
-                📍 Claim at: <span class="text-blue-700">${esc(entry.dropPoint || 'Office')}</span>
+              <div class="mb-2.5 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-xs font-bold text-blue-950">
+                📍 Pick up / Claim at: <span class="text-red-600 underline">${esc(entry.dropPoint || 'Office')}</span>
               </div>
 
               <div class="space-y-1 text-xs text-slate-600">
@@ -152,7 +182,7 @@
     }
 
     document.getElementById('searchInput').addEventListener('input', filterAndRender);
-    document.getElementById('houseFilter').addEventListener('change', filterAndRender);
+    document.getElementById('dropPointFilter').addEventListener('change', filterAndRender);
     document.getElementById('statusFilter').addEventListener('change', filterAndRender);
   </script>
 </body>
