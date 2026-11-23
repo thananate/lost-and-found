@@ -1,43 +1,54 @@
-async function loadCategories() {
-      const select = document.getElementById('categorySelect');
-      const dropSelect = document.getElementById('dropPointSelect');
-      try {
-        // ดึงข้อมูลทั้งหมดโดยไม่ต้องพึ่ง orderBy("createdAt") เพื่อป้องกัน Error
-        const snap = await getDocs(collection(db, "categories"));
-        
-        if (snap.empty) {
-          const fallback = [
-            { name: "1. Valuables (ของมีค่า)", examples: "Wallet, Cash", dropPoint: "Office" },
-            { name: "2. Stationery & PE Kit (เครื่องเขียน / ชุดพละ)", examples: "Pens, Pencils, PE Shirt", dropPoint: "Store room" },
-            { name: "3. Miscellaneous (เบ็ดเตล็ด)", examples: "Lunch Box, Water Bottle, Sweater", dropPoint: "in front of Library" }
-          ];
-          select.innerHTML = `<option value="">-- Select Item Category --</option>` + fallback.map(c => {
-            categoriesMap[c.name] = c.dropPoint;
-            return `<option value="${c.name}">${c.name} — e.g., ${c.examples}</option>`;
-          }).join('');
-          return;
-        }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Found Property Report | International Pioneers School Bangkok</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Prompt:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', 'Prompt', sans-serif; background: #f1f5f9; color: #0f172a; }
+    .card { background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(15,23,42,0.04); }
+  </style>
+</head>
+<body class="pb-14">
 
-        const customDropPoints = new Set(["Office", "Store room", "in front of Library"]);
-        const docsList = snap.docs.map(d => d.data()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  <header class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-lg border-b-4 border-red-600">
+    <div class="max-w-4xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4 text-center sm:text-left">
+        <img src="https://lh3.googleusercontent.com/d/1R1aYZwaQ-IwaZizziHzJaUb6yXhabVOT" onerror="this.style.display='none'" alt="IPS Logo" class="w-14 h-14 object-contain rounded-full bg-white/10 p-1">
+        <div>
+          <span class="text-[11px] font-bold tracking-widest uppercase text-red-400">International Pioneers School Bangkok</span>
+          <h1 class="text-xl font-extrabold tracking-tight">FOUND PROPERTY REPORT</h1>
+        </div>
+      </div>
+      <a href="index.html" class="px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition">
+        ← Back to Home
+      </a>
+    </div>
+  </header>
 
-        select.innerHTML = `<option value="">-- Select Item Category --</option>` + docsList.map(c => {
-          categoriesMap[c.name] = c.dropPoint;
-          if (c.dropPoint) customDropPoints.add(c.dropPoint);
-          return `<option value="${c.name}">${c.name} — e.g., ${c.examples || ''}</option>`;
-        }).join('');
+  <main class="max-w-2xl mx-auto px-4 mt-8">
+    <div class="card rounded-3xl p-6 sm:p-8">
+      <div class="pb-4 mb-6 border-b border-slate-100">
+        <h2 class="text-lg font-bold text-slate-800">Item Registration Form</h2>
+        <p class="text-xs text-slate-500">Fields marked with <span class="text-red-500 font-bold">*</span> are required.</p>
+      </div>
 
-        customDropPoints.forEach(pt => {
-          const exists = Array.from(dropSelect.options).some(opt => opt.value === pt);
-          if (!exists) {
-            const opt = document.createElement('option');
-            opt.value = pt;
-            opt.text = `📍 ${pt}`;
-            dropSelect.appendChild(opt);
-          }
-        });
-      } catch (err) {
-        console.error("Error loading categories:", err);
-        select.innerHTML = `<option value="">-- Error loading categories --</option>`;
-      }
-    }
+      <form id="foundForm" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Finder's Full Name *</label>
+            <input type="text" id="finder" required placeholder="e.g., Somchai Jaidee" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Grade / Class (Optional)</label>
+            <input type="text" id="gradeClass" placeholder="e.g., Year 8B" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">School House *</label>
+          <select id="house" required class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm bg-white">
+            <option value="">-- Select School House --</option>
