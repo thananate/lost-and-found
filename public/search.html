@@ -29,10 +29,9 @@
   </header>
 
   <main class="max-w-5xl mx-auto px-4 sm:px-6 mt-8 space-y-6">
-    <!-- Filter Controls -->
     <div class="card rounded-2xl p-5 sm:p-6">
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-base font-bold text-slate-800">Search Reported Items</h2>
+        <h2 class="text-base font-bold text-slate-800">Search Verified Reported Items</h2>
         <span id="countBadge" class="px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-bold">Loading...</span>
       </div>
 
@@ -48,14 +47,13 @@
         </select>
 
         <select id="statusFilter" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm focus:bg-white outline-none">
-          <option value="all">All Statuses</option>
+          <option value="all">All Verified Statuses</option>
           <option value="Awaiting Owner" selected>⏳ Awaiting Owner</option>
           <option value="Returned">✅ Returned to Owner</option>
         </select>
       </div>
     </div>
 
-    <!-- Results Grid -->
     <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
       <div class="col-span-full text-center py-12 text-slate-400 text-sm">Loading items from database...</div>
     </div>
@@ -69,12 +67,14 @@
 
     const q = query(collection(db, "lost_items"), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
-      allItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // แสดงเฉพาะรายการที่เจ้าหน้าที่ยืนยันรับของเข้าจุด Drop-off แล้ว (ตัด Pending Verification ออก)
+      allItems = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(item => item.status !== 'Pending Verification');
       updateDropPointOptions(allItems);
       filterAndRender();
     });
 
-    // อัปเดตตัวเลือกจุด Drop-off อัตโนมัติหากมีจุดใหม่ถูกเพิ่มเข้ามาในระบบ
     function updateDropPointOptions(items) {
       const select = document.getElementById('dropPointFilter');
       const currentVal = select.value;
@@ -87,7 +87,6 @@
         }
       });
 
-      // ลบตัวเลือกเสริมเก่าออกก่อนสร้างใหม่ป้องกันซ้ำ
       Array.from(select.querySelectorAll('.extra-opt')).forEach(el => el.remove());
 
       extraPoints.forEach(pt => {
