@@ -59,12 +59,47 @@
     <!-- Admin Panel -->
     <div id="adminPanel" class="hidden space-y-8">
       
-      <!-- SECTION 1: TOP FINDERS REPORT & EXPORT -->
+      <!-- SECTION 1: MANAGE & VERIFY REPORTED ITEMS (ย้ายขึ้นบนสุดเพื่อให้เจ้าหน้าที่กดยืนยันรับของได้ทันที) -->
+      <div class="card rounded-2xl p-6 overflow-x-auto">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-800">📦 Verify & Manage Reported Items</h2>
+            <p id="adminUserLabel" class="text-xs text-slate-500"></p>
+          </div>
+          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+            <select id="adminStatusFilter" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold bg-white">
+              <option value="all">All Statuses</option>
+              <option value="Pending Verification">🔔 Pending Verification (รอรับของ)</option>
+              <option value="Awaiting Owner">⏳ Awaiting Owner (รับของแล้ว/รอเจ้าของ)</option>
+              <option value="Returned">✅ Returned (คืนเจ้าของแล้ว)</option>
+            </select>
+            <input type="text" id="adminSearch" placeholder="Search ID, name, student ID..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-56">
+          </div>
+        </div>
+
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+              <th class="py-3 px-3">Ref ID / Photo</th>
+              <th class="py-3 px-3">Item & Category</th>
+              <th class="py-3 px-3">Drop-off Point</th>
+              <th class="py-3 px-3">Finder / Student ID</th>
+              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
+            <tr><td colspan="6" class="py-8 text-center text-slate-400">Loading records...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SECTION 2: TOP FINDERS REPORT & EXPORT (นับเฉพาะรายการที่ยืนยันรับของแล้วเท่านั้น) -->
       <div class="card rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
           <div>
-            <h2 class="text-base font-bold text-slate-800">🏆 Top Finders Report (สรุปอันดับผู้เก็บของได้เยอะที่สุด)</h2>
-            <p class="text-xs text-slate-500">Summary of students/staff who returned lost property for House points & recognition.</p>
+            <h2 class="text-base font-bold text-slate-800">🏆 Verified Top Finders Report (สรุปอันดับผู้เก็บของได้ — เฉพาะรายการที่ยืนยันรับของแล้ว)</h2>
+            <p class="text-xs text-slate-500">Only verified items (Awaiting Owner / Returned) are counted toward House points and rankings.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <select id="reportPeriod" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold bg-white">
@@ -86,19 +121,20 @@
               <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 bg-slate-50">
                 <th class="py-2.5 px-3 w-16">Rank</th>
                 <th class="py-2.5 px-3">Finder Name</th>
+                <th class="py-2.5 px-3">Student ID</th>
                 <th class="py-2.5 px-3">Grade / Class</th>
                 <th class="py-2.5 px-3">School House</th>
-                <th class="py-2.5 px-3 text-right">Items Found</th>
+                <th class="py-2.5 px-3 text-right">Verified Items</th>
               </tr>
             </thead>
             <tbody id="topFindersBody" class="divide-y divide-slate-100 text-xs">
-              <tr><td colspan="5" class="py-6 text-center text-slate-400">Calculating report...</td></tr>
+              <tr><td colspan="6" class="py-6 text-center text-slate-400">Calculating report...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- SECTION 2: DROP-OFF POINT & CATEGORY SETTINGS -->
+      <!-- SECTION 3: DROP-OFF POINT & CATEGORY SETTINGS -->
       <div class="card rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
           <div>
@@ -130,33 +166,6 @@
         <div id="categoryList" class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="col-span-full text-center py-4 text-xs text-slate-400">Loading drop-off rules...</div>
         </div>
-      </div>
-
-      <!-- SECTION 3: MANAGE REPORTED ITEMS -->
-      <div class="card rounded-2xl p-6 overflow-x-auto">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div>
-            <h2 class="text-base font-bold text-slate-800">📦 Manage Reported Items</h2>
-            <p id="adminUserLabel" class="text-xs text-slate-500"></p>
-          </div>
-          <input type="text" id="adminSearch" placeholder="Filter by ID, item, drop-off point..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-64">
-        </div>
-
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
-              <th class="py-3 px-3">Ref ID</th>
-              <th class="py-3 px-3">Item & Category</th>
-              <th class="py-3 px-3">Dropped At</th>
-              <th class="py-3 px-3">Finder / House</th>
-              <th class="py-3 px-3">Status</th>
-              <th class="py-3 px-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="adminTableBody" class="divide-y divide-slate-100 text-xs">
-            <tr><td colspan="6" class="py-8 text-center text-slate-400">Loading records...</td></tr>
-          </tbody>
-        </table>
       </div>
 
     </div>
@@ -198,12 +207,14 @@
 
     document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
 
-    // --- TOP FINDERS LEADERBOARD ---
+    // --- TOP FINDERS LEADERBOARD (นับเฉพาะรายการที่ยืนยันรับของแล้ว) ---
     function renderTopFinders() {
       const period = document.getElementById('reportPeriod').value;
-      const currentMonthPrefix = new Date().toISOString().slice(0, 7); // e.g., "2026-11"
+      const currentMonthPrefix = new Date().toISOString().slice(0, 7);
 
       const filtered = allRecords.filter(r => {
+        // ข้ามรายการที่ยังไม่ได้รับการยืนยัน (Pending Verification)
+        if (r.status === 'Pending Verification') return false;
         if (period === 'month') {
           return r.foundDate && r.foundDate.startsWith(currentMonthPrefix);
         }
@@ -213,26 +224,26 @@
       const statsMap = {};
       filtered.forEach(r => {
         const rawName = (r.finder || 'Unknown').trim();
-        const key = rawName.toLowerCase();
+        const sid = (r.studentId || '-').trim();
+        const key = sid !== '-' ? sid.toLowerCase() : rawName.toLowerCase();
+
         if (!statsMap[key]) {
           statsMap[key] = {
             name: rawName,
+            studentId: sid,
             gradeClass: r.gradeClass && r.gradeClass !== '-' ? r.gradeClass : '-',
             house: r.house || '-',
             count: 0
           };
         }
         statsMap[key].count++;
-        if (statsMap[key].gradeClass === '-' && r.gradeClass && r.gradeClass !== '-') {
-          statsMap[key].gradeClass = r.gradeClass;
-        }
       });
 
       currentLeaderboard = Object.values(statsMap).sort((a, b) => b.count - a.count);
 
       const tbody = document.getElementById('topFindersBody');
       if (currentLeaderboard.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">No records found for this period.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400">No verified records found for this period.</td></tr>`;
         return;
       }
 
@@ -246,6 +257,7 @@
           <tr class="hover:bg-slate-50">
             <td class="py-2.5 px-3">${rankBadge}</td>
             <td class="py-2.5 px-3 font-bold text-slate-800">${f.name}</td>
+            <td class="py-2.5 px-3 font-mono text-slate-600">${f.studentId}</td>
             <td class="py-2.5 px-3 text-slate-600">${f.gradeClass}</td>
             <td class="py-2.5 px-3 text-slate-600">${f.house}</td>
             <td class="py-2.5 px-3 text-right">
@@ -258,7 +270,6 @@
 
     document.getElementById('reportPeriod').addEventListener('change', renderTopFinders);
 
-    // Export CSV Helper (รองรับภาษาไทยใน Excel ด้วย BOM \uFEFF)
     function downloadCSV(filename, rows) {
       const csvContent = "\uFEFF" + rows.map(e => e.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(",")).join("\n");
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -269,17 +280,17 @@
     }
 
     document.getElementById('btnExportFinders').addEventListener('click', () => {
-      const rows = [["Rank", "Finder Name", "Grade/Class", "School House", "Total Items Found"]];
+      const rows = [["Rank", "Finder Name", "Student ID", "Grade/Class", "School House", "Verified Items Found"]];
       currentLeaderboard.forEach((f, idx) => {
-        rows.push([idx + 1, f.name, f.gradeClass, f.house, f.count]);
+        rows.push([idx + 1, f.name, f.studentId, f.gradeClass, f.house, f.count]);
       });
-      downloadCSV(`IPS_Top_Finders_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      downloadCSV(`IPS_Verified_Top_Finders_${new Date().toISOString().slice(0,10)}.csv`, rows);
     });
 
     document.getElementById('btnExportAllItems').addEventListener('click', () => {
-      const rows = [["Ref ID", "Date Found", "Item", "Category", "Color", "Brand", "Found At", "Dropped At", "Finder", "Grade/Class", "House", "Status"]];
+      const rows = [["Ref ID", "Date Found", "Item", "Category", "Color", "Brand", "Found At", "Dropped At", "Finder", "Student ID", "Grade/Class", "House", "Status"]];
       allRecords.forEach(r => {
-        rows.push([r.itemId, r.foundDate, r.item, r.category, r.color, r.brand, r.location, r.dropPoint, r.finder, r.gradeClass, r.house, r.status]);
+        rows.push([r.itemId, r.foundDate, r.item, r.category, r.color, r.brand, r.location, r.dropPoint, r.finder, r.studentId || '-', r.gradeClass, r.house, r.status]);
       });
       downloadCSV(`IPS_Lost_Found_Report_${new Date().toISOString().slice(0,10)}.csv`, rows);
     });
@@ -370,11 +381,19 @@
       });
     }
 
+    window.viewPhoto = (base64, itemName) => {
+      Swal.fire({ title: itemName, imageUrl: base64, imageAlt: itemName, confirmButtonColor: '#1e3a8a' });
+    };
+
     function renderTable() {
       const kw = document.getElementById('adminSearch').value.toLowerCase().trim();
-      const filtered = allRecords.filter(r => 
-        !kw || [r.itemId, r.item, r.category, r.dropPoint, r.finder, r.house].join(' ').toLowerCase().includes(kw)
-      );
+      const st = document.getElementById('adminStatusFilter').value;
+
+      const filtered = allRecords.filter(r => {
+        const matchKw = !kw || [r.itemId, r.item, r.category, r.dropPoint, r.finder, r.studentId, r.house].join(' ').toLowerCase().includes(kw);
+        const matchSt = st === 'all' || r.status === st;
+        return matchKw && matchSt;
+      });
 
       const tbody = document.getElementById('adminTableBody');
       if (filtered.length === 0) {
@@ -383,18 +402,32 @@
       }
 
       tbody.innerHTML = filtered.map(r => {
+        const isPending = r.status === 'Pending Verification';
         const isRet = r.status === 'Returned';
-        const statusBadge = isRet
-          ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Returned</span>`
-          : `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">Awaiting Owner</span>`;
 
-        const toggleBtn = isRet
-          ? `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold">Undo</button>`
-          : `<button onclick="window.toggleStatus('${r.docId}', 'Returned')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Mark Returned</button>`;
+        let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">Awaiting Owner</span>`;
+        if (isPending) statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">🔔 Pending Drop-off</span>`;
+        else if (isRet) statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Returned</span>`;
+
+        let actionBtn = '';
+        if (isPending) {
+          actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm">✓ Confirm Received</button>`;
+        } else if (isRet) {
+          actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold">Undo</button>`;
+        } else {
+          actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Returned')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Mark Returned</button>`;
+        }
+
+        const photoBtn = (r.imageBase64 && r.imageBase64.startsWith('data:image'))
+          ? `<button onclick="window.viewPhoto('${r.imageBase64}', '${r.item}')" class="mt-1 text-[11px] text-blue-600 hover:underline block">🖼️ View Photo</button>`
+          : '';
 
         return `
-          <tr class="hover:bg-slate-50">
-            <td class="py-3 px-3 font-mono font-bold text-blue-900">${r.itemId || '-'}</td>
+          <tr class="hover:bg-slate-50 ${isPending ? 'bg-purple-50/40' : ''}">
+            <td class="py-3 px-3">
+              <div class="font-mono font-bold text-blue-900">${r.itemId || '-'}</div>
+              ${photoBtn}
+            </td>
             <td class="py-3 px-3">
               <div class="font-bold text-slate-800">${r.item}</div>
               <div class="text-[11px] text-slate-500">${r.category || '-'} • ${r.color} • ${r.foundDate}</div>
@@ -403,12 +436,12 @@
               <span class="px-2 py-1 rounded-md bg-blue-50 text-blue-900 font-bold text-[11px]">📍 ${r.dropPoint || '-'}</span>
             </td>
             <td class="py-3 px-3">
-              <div>${r.finder}</div>
+              <div class="font-semibold text-slate-800">${r.finder} <span class="text-[11px] font-mono text-slate-500">(${r.studentId || '-'})</span></div>
               <div class="text-[11px] text-slate-400">${r.house}</div>
             </td>
             <td class="py-3 px-3">${statusBadge}</td>
             <td class="py-3 px-3 text-right space-x-1 whitespace-nowrap">
-              ${toggleBtn}
+              ${actionBtn}
               <button onclick="window.removeItem('${r.docId}')" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold">Delete</button>
             </td>
           </tr>
@@ -421,11 +454,12 @@
     };
 
     window.removeItem = async (docId) => {
-      const res = await Swal.fire({ title: 'Delete this record?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626' });
+      const res = await Swal.fire({ title: 'Delete this record?', text: 'Fake or unverified reports can be permanently deleted.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626' });
       if (res.isConfirmed) await deleteDoc(doc(db, "lost_items", docId));
     };
 
     document.getElementById('adminSearch').addEventListener('input', renderTable);
+    document.getElementById('adminStatusFilter').addEventListener('change', renderTable);
   </script>
 </body>
 </html>
