@@ -59,7 +59,7 @@
     <!-- Admin Panel -->
     <div id="adminPanel" class="hidden space-y-8">
       
-      <!-- SECTION 1: MANAGE & VERIFY REPORTED ITEMS (ย้ายขึ้นบนสุดเพื่อให้เจ้าหน้าที่กดยืนยันรับของได้ทันที) -->
+      <!-- SECTION 1: MANAGE & VERIFY REPORTED ITEMS -->
       <div class="card rounded-2xl p-6 overflow-x-auto">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
@@ -73,18 +73,18 @@
               <option value="Awaiting Owner">⏳ Awaiting Owner (รับของแล้ว/รอเจ้าของ)</option>
               <option value="Returned">✅ Returned (คืนเจ้าของแล้ว)</option>
             </select>
-            <input type="text" id="adminSearch" placeholder="Search ID, name, student ID..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-56">
+            <input type="text" id="adminSearch" placeholder="Search ID, item, finder, claimant..." class="rounded-xl border border-slate-300 px-3.5 py-2 text-xs w-full sm:w-56">
           </div>
         </div>
 
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
-              <th class="py-3 px-3">Ref ID / Photo</th>
+              <th class="py-3 px-3">Ref ID / Item Photo</th>
               <th class="py-3 px-3">Item & Category</th>
               <th class="py-3 px-3">Drop-off Point</th>
               <th class="py-3 px-3">Finder / Student ID</th>
-              <th class="py-3 px-3">Status</th>
+              <th class="py-3 px-3">Status & Return Log</th>
               <th class="py-3 px-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -94,7 +94,7 @@
         </table>
       </div>
 
-      <!-- SECTION 2: TOP FINDERS REPORT & EXPORT (นับเฉพาะรายการที่ยืนยันรับของแล้วเท่านั้น) -->
+      <!-- SECTION 2: TOP FINDERS REPORT & EXPORT -->
       <div class="card rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-4 border-b border-slate-100">
           <div>
@@ -207,13 +207,12 @@
 
     document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
 
-    // --- TOP FINDERS LEADERBOARD (นับเฉพาะรายการที่ยืนยันรับของแล้ว) ---
+    // --- TOP FINDERS LEADERBOARD ---
     function renderTopFinders() {
       const period = document.getElementById('reportPeriod').value;
       const currentMonthPrefix = new Date().toISOString().slice(0, 7);
 
       const filtered = allRecords.filter(r => {
-        // ข้ามรายการที่ยังไม่ได้รับการยืนยัน (Pending Verification)
         if (r.status === 'Pending Verification') return false;
         if (period === 'month') {
           return r.foundDate && r.foundDate.startsWith(currentMonthPrefix);
@@ -288,11 +287,20 @@
     });
 
     document.getElementById('btnExportAllItems').addEventListener('click', () => {
-      const rows = [["Ref ID", "Date Found", "Item", "Category", "Color", "Brand", "Found At", "Dropped At", "Finder", "Student ID", "Grade/Class", "House", "Status"]];
+      const rows = [[
+        "Ref ID", "Date Found", "Item", "Category", "Color", "Brand", "Found At", "Dropped At", 
+        "Finder", "Finder Student ID", "Grade/Class", "House", "Status", 
+        "Claimant Name", "Claimant ID/Class", "Claimant Phone", "Returned Date & Time", "Claimant Photo Attached"
+      ]];
       allRecords.forEach(r => {
-        rows.push([r.itemId, r.foundDate, r.item, r.category, r.color, r.brand, r.location, r.dropPoint, r.finder, r.studentId || '-', r.gradeClass, r.house, r.status]);
+        rows.push([
+          r.itemId, r.foundDate, r.item, r.category, r.color, r.brand, r.location, r.dropPoint,
+          r.finder, r.studentId || '-', r.gradeClass, r.house, r.status,
+          r.claimantName || '-', r.claimantInfo || '-', r.claimantPhone || '-', r.returnedDateTime || '-',
+          r.claimantPhotoBase64 ? 'Yes' : 'No'
+        ]);
       });
-      downloadCSV(`IPS_Lost_Found_Report_${new Date().toISOString().slice(0,10)}.csv`, rows);
+      downloadCSV(`IPS_Lost_Found_Full_Report_${new Date().toISOString().slice(0,10)}.csv`, rows);
     });
 
     // --- CATEGORY & DROP-OFF SETTINGS ---
@@ -381,8 +389,20 @@
       });
     }
 
-    window.viewPhoto = (base64, itemName) => {
-      Swal.fire({ title: itemName, imageUrl: base64, imageAlt: itemName, confirmButtonColor: '#1e3a8a' });
+    window.viewPhotoByDoc = (docId, type) => {
+      const rec = allRecords.find(r => r.docId === docId);
+      if (!rec) return;
+      if (type === 'item' && rec.imageBase64) {
+        Swal.fire({ title: `Item: ${rec.item}`, imageUrl: rec.imageBase64, imageAlt: rec.item, confirmButtonColor: '#1e3a8a' });
+      } else if (type === 'claimant' && rec.claimantPhotoBase64) {
+        Swal.fire({ 
+          title: `Receiver: ${rec.claimantName || 'Owner'}`, 
+          text: `Returned on: ${rec.returnedDateTime || '-'}`,
+          imageUrl: rec.claimantPhotoBase64, 
+          imageAlt: 'Receiver Proof', 
+          confirmButtonColor: '#059669' 
+        });
+      }
     };
 
     function renderTable() {
@@ -390,7 +410,7 @@
       const st = document.getElementById('adminStatusFilter').value;
 
       const filtered = allRecords.filter(r => {
-        const matchKw = !kw || [r.itemId, r.item, r.category, r.dropPoint, r.finder, r.studentId, r.house].join(' ').toLowerCase().includes(kw);
+        const matchKw = !kw || [r.itemId, r.item, r.category, r.dropPoint, r.finder, r.studentId, r.house, r.claimantName, r.claimantPhone].join(' ').toLowerCase().includes(kw);
         const matchSt = st === 'all' || r.status === st;
         return matchKw && matchSt;
       });
@@ -407,40 +427,54 @@
 
         let statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">Awaiting Owner</span>`;
         if (isPending) statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">🔔 Pending Drop-off</span>`;
-        else if (isRet) statusBadge = `<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">Returned</span>`;
+        else if (isRet) {
+          const receiverPhotoLink = (r.claimantPhotoBase64 && r.claimantPhotoBase64.startsWith('data:image'))
+            ? `<button onclick="window.viewPhotoByDoc('${r.docId}', 'claimant')" class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px]">📸 View Receiver Photo</button>`
+            : '';
+
+          statusBadge = `
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 inline-block">✅ Returned</span>
+            <div class="mt-1.5 text-[11px] text-slate-600 bg-slate-100 p-2 rounded-lg border border-slate-200 leading-relaxed">
+              <div><strong>Receiver:</strong> ${r.claimantName || '-'} (${r.claimantInfo || '-'})</div>
+              <div><strong>Tel:</strong> ${r.claimantPhone || '-'}</div>
+              <div><strong>Time:</strong> ${r.returnedDateTime || '-'}</div>
+              ${receiverPhotoLink}
+            </div>
+          `;
+        }
 
         let actionBtn = '';
         if (isPending) {
           actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm">✓ Confirm Received</button>`;
         } else if (isRet) {
-          actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Awaiting Owner')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold">Undo</button>`;
+          actionBtn = `<button onclick="window.undoReturn('${r.docId}')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold">Undo</button>`;
         } else {
-          actionBtn = `<button onclick="window.toggleStatus('${r.docId}', 'Returned')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Mark Returned</button>`;
+          actionBtn = `<button onclick="window.openReturnModal('${r.docId}', '${r.itemId}', '${r.item}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Mark Returned</button>`;
         }
 
         const photoBtn = (r.imageBase64 && r.imageBase64.startsWith('data:image'))
-          ? `<button onclick="window.viewPhoto('${r.imageBase64}', '${r.item}')" class="mt-1 text-[11px] text-blue-600 hover:underline block">🖼️ View Photo</button>`
+          ? `<button onclick="window.viewPhotoByDoc('${r.docId}', 'item')" class="mt-1 text-[11px] text-blue-600 hover:underline block">🖼️ Item Photo</button>`
           : '';
 
         return `
           <tr class="hover:bg-slate-50 ${isPending ? 'bg-purple-50/40' : ''}">
-            <td class="py-3 px-3">
+            <td class="py-3 px-3 align-top">
               <div class="font-mono font-bold text-blue-900">${r.itemId || '-'}</div>
               ${photoBtn}
             </td>
-            <td class="py-3 px-3">
+            <td class="py-3 px-3 align-top">
               <div class="font-bold text-slate-800">${r.item}</div>
               <div class="text-[11px] text-slate-500">${r.category || '-'} • ${r.color} • ${r.foundDate}</div>
             </td>
-            <td class="py-3 px-3">
+            <td class="py-3 px-3 align-top">
               <span class="px-2 py-1 rounded-md bg-blue-50 text-blue-900 font-bold text-[11px]">📍 ${r.dropPoint || '-'}</span>
             </td>
-            <td class="py-3 px-3">
+            <td class="py-3 px-3 align-top">
               <div class="font-semibold text-slate-800">${r.finder} <span class="text-[11px] font-mono text-slate-500">(${r.studentId || '-'})</span></div>
               <div class="text-[11px] text-slate-400">${r.house}</div>
             </td>
-            <td class="py-3 px-3">${statusBadge}</td>
-            <td class="py-3 px-3 text-right space-x-1 whitespace-nowrap">
+            <td class="py-3 px-3 align-top">${statusBadge}</td>
+            <td class="py-3 px-3 text-right space-x-1 whitespace-nowrap align-top">
               ${actionBtn}
               <button onclick="window.removeItem('${r.docId}')" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-semibold">Delete</button>
             </td>
@@ -448,6 +482,113 @@
         `;
       }).join('');
     }
+
+    // เปิดหน้าต่างกรอกข้อมูลและถ่ายรูปผู้มารับคืน
+    window.openReturnModal = async (docId, itemId, itemName) => {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      const defaultDateTime = now.toISOString().slice(0, 16);
+      let compressedClaimantPhoto = "";
+
+      const { value: formValues } = await Swal.fire({
+        title: `Record Item Return`,
+        html: `
+          <div class="text-left space-y-3 text-xs mt-2">
+            <div class="p-2.5 rounded-lg bg-blue-50 text-blue-900 font-semibold">
+              Item: ${itemName} (${itemId})
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">1. Receiver's Full Name (ชื่อ-นามสกุลผู้รับคืน) *</label>
+              <input id="swal-claimant-name" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g., Somsri Rakdee">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">2. Student ID / Class / Relation (รหัสนักเรียน / ชั้น / ผู้ปกครอง)</label>
+              <input id="swal-claimant-info" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g., 650456 / Year 6A or Parent">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">3. Contact Phone Number (เบอร์โทรศัพท์ติดต่อกลับ) *</label>
+              <input id="swal-claimant-phone" type="tel" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="e.g., 081-234-5678">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">4. Date & Time Returned (วันที่และเวลารับคืน) *</label>
+              <input id="swal-return-datetime" type="datetime-local" value="${defaultDateTime}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+              <label class="block font-bold text-slate-700 mb-1">5. 📸 Receiver Photo Proof (รูปถ่ายผู้รับคืน — Optional)</label>
+              <input id="swal-claimant-photo" type="file" accept="image/*" capture="environment" class="text-xs w-full">
+              <img id="swal-claimant-preview" class="hidden mt-2 max-h-28 rounded border">
+            </div>
+          </div>
+        `,
+        didOpen: () => {
+          const fileInput = document.getElementById('swal-claimant-photo');
+          const preview = document.getElementById('swal-claimant-preview');
+          fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_W = 400;
+                let w = img.width, h = img.height;
+                if (w > MAX_W) { h = Math.round((h * MAX_W) / w); w = MAX_W; }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                compressedClaimantPhoto = canvas.toDataURL('image/jpeg', 0.65);
+                preview.src = compressedClaimantPhoto;
+                preview.classList.remove('hidden');
+              };
+              img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+          });
+        },
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Confirm Return',
+        confirmButtonColor: '#059669',
+        preConfirm: () => {
+          const name = document.getElementById('swal-claimant-name').value.trim();
+          const info = document.getElementById('swal-claimant-info').value.trim();
+          const phone = document.getElementById('swal-claimant-phone').value.trim();
+          const dt = document.getElementById('swal-return-datetime').value;
+
+          if (!name || !phone || !dt) {
+            Swal.showValidationMessage('Please enter Receiver Name, Phone Number, and Date/Time.');
+            return false;
+          }
+          return { name, info: info || '-', phone, dt: dt.replace('T', ' '), photo: compressedClaimantPhoto };
+        }
+      });
+
+      if (formValues) {
+        await updateDoc(doc(db, "lost_items", docId), {
+          status: 'Returned',
+          claimantName: formValues.name,
+          claimantInfo: formValues.info,
+          claimantPhone: formValues.phone,
+          returnedDateTime: formValues.dt,
+          claimantPhotoBase64: formValues.photo
+        });
+        Swal.fire({ icon: 'success', title: 'Return Recorded!', timer: 1400, showConfirmButton: false });
+      }
+    };
+
+    window.undoReturn = async (docId) => {
+      const res = await Swal.fire({ title: 'Revert status to Awaiting Owner?', icon: 'question', showCancelButton: true, confirmButtonColor: '#d97706' });
+      if (res.isConfirmed) {
+        await updateDoc(doc(db, "lost_items", docId), {
+          status: 'Awaiting Owner',
+          claimantName: '',
+          claimantInfo: '',
+          claimantPhone: '',
+          returnedDateTime: '',
+          claimantPhotoBase64: ''
+        });
+      }
+    };
 
     window.toggleStatus = async (docId, newStatus) => {
       await updateDoc(doc(db, "lost_items", docId), { status: newStatus });
